@@ -1,0 +1,104 @@
+name: deploy
+
+on: [push]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Cancel previous runs on the same branch
+        if: ${{ !env.ACT }}
+        uses: styfle/cancel-workflow-action@0.7.0
+        with:
+          access_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/checkout@v2
+        if: ${{ !env.ACT }}
+        with:
+          ref: 'master'
+          token: '${{ secrets.GITHUB_TOKEN }}'
+          fetch-depth: '1'
+          lfs: 'true'
+
+      - name: Use Node.js 14.x
+        uses: actions/setup-node@v1
+        with:
+          node-version: 14.x
+
+      - name: Checkout UI
+        uses: actions/checkout@v2
+        with:
+          repository: x-ca/x-ca
+          ref: 'ui'
+          token: ${{ secrets.GITHUB_TOKEN }}
+          path: ui
+
+      - name: Build UI
+        run: |
+          set -x
+          cd ui
+          yarn global add @quasar/cli
+          [[ -f package-lock.json ]] && rm package-lock.json
+          yarn
+          quasar build
+          tree dist/spa
+          cd -
+
+      - name: Copy file to Public
+        run: |
+          if [[ ! -d "./public" ]]; then
+            mkdir public
+          fi
+          cp -rp crl/*.crl ca/*.p7c ca/*.pem ca/*.crt ca/*.cer ui/dist/spa/* ./public
+
+      - name: Push to Github
+        uses: x-actions/git-push@v1
+        env:
+          GITHUB_EMAIL: 'me@xiexianbin.cn'
+          GITHUB_USERNAME: 'xiexianbin'
+          PUBLISH_REPO: https://${{ secrets.TOKEN }}@github.com/xiexianbin/website.git
+          PUBLISH_BRANCH: ca
+          PUBLISH_DIR: ./public
+          CNAME: ca.xiexianbin.cn
+
+      - name: Checkout CDN Cache config
+        uses: actions/checkout@v2
+        with:
+          repository: xiexianbin/configs.xiexianbin.cn
+          ref: 'cdn-cache'
+          token: ${{ secrets.TOKEN }}
+          path: configs.xiexianbin.cn
+
+      - name: Sync code to CDN
+        uses: x-actions/go-sync@v1.1.1
+        env:
+          CDNTYPE: 'aliyun'
+          ACCESSKEYID: ${{ secrets.ACCESSKEYID }}
+          ACCESSKEYSECRET: ${{ secrets.ACCESSKEYSECRET }}
+          ENDPOINT: 'oss-cn-shanghai.aliyuncs.com'
+          BUCKETNAME: 'ca-xiexianbin-cn'
+          CACHEFILE: '/github/workspace/configs.xiexianbin.cn/ca-xiexianbin-cn.json'
+          EXCLUDE: '.git'
+          SUB_DIR: 'public'
+
+      - name: Push CDN Cache to github
+        uses: x-actions/git-push@v1
+        env:
+          GITHUB_EMAIL: 'me@xiexianbin.cn'
+          GITHUB_USERNAME: 'xiexianbin'
+          PUBLISH_REPO: https://${{ secrets.TOKEN }}@github.com/xiexianbin/configs.xiexianbin.cn.git
+          PUBLISH_BRANCH: cdn-cache
+          PUBLISH_DIR: 'configs.xiexianbin.cn'
+
+      - name: Sending Dingtalk Message
+        uses: x-actions/dingtalk@v2
+        env:
+          DINGTALK_ACCESS_TOKEN: ${{ secrets.DINGTALK_ACCESS_TOKEN }}
+          DINGTALK_SECRET: ${{ secrets.DINGTALK_SECRET }}
+          MSGTYPE: markdown
+          TITLE: "Blog Build Done"
+          TEXT: |
+            # CA Deploy Done
+            > [ca.xiexianbin.cn](https://ca.xiexianbin.cn)
+            > Build Done. ^_^
