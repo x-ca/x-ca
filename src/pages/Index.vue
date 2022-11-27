@@ -5,7 +5,7 @@
         <q-markdown :src="t" />
     <q-markdown src="
 :::info
-X-CA is not be trusted all OS, if you want use it, must config **X ROOT CA**.
+X-CA is not be trusted all OS, if you want use it, must install **X ROOT CA**.
 :::
 
 ---
@@ -20,6 +20,7 @@ X-CA is not be trusted all OS, if you want use it, must config **X ROOT CA**.
 ### Some Files
 
 - [root-ca.crt](https://ca.xiexianbin.cn/root-ca.crt)
+- [root-ca.cer](https://ca.xiexianbin.cn/root-ca.cer)
 - [tls-ca-chain.pem](https://ca.xiexianbin.cn/tls-ca-chain.pem)
 - [tls-ca.cer](https://ca.xiexianbin.cn/tls-ca.crt)
 - [tls-ca.crl](https://ca.xiexianbin.cn/tls-ca.crl)
